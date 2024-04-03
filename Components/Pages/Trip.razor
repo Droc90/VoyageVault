@@ -1,0 +1,130 @@
+﻿@page "/trip"
+@using Newtonsoft.Json
+@using System.Text
+@inject HttpClient httpClient
+@rendermode InteractiveServer
+
+<h3>Enter Trip Payments</h3>
+
+@* <div>
+    <label>Date:</label>
+    <input type="date" @bind="selectedDate" min="@DateTime.Now.Year + " -99-99" max="@DateTime.Now.Year + " -12-31" />
+</div> *@
+<div>
+    <label>Name:</label>
+    <input @bind="name" />
+</div>
+<div>
+    <label>Amount Paid:</label>
+    <input type="number" @bind="amountPaid" />
+</div>
+<button class="btn btn-primary" @onclick="AddPayment">Add Payment</button>
+
+
+@if (payments.Any())
+{
+    <div>
+        <h4>Payments Table</h4>
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Amount Paid</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var payment in payments)
+                {
+                    <tr>
+                        <td>@payment.Name</td>
+                        <td>@payment.Amount</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (showTallyTable)
+{
+    <div>
+        <h4>Tally Table</h4>
+        <!-- Display tally table here -->
+@*         <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Amount Owed</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var response in response)
+                {
+                    <tr>
+                        <td>@payment.Name</td>
+                        <td>@payment.Amount</td>
+                    </tr>
+                }
+            </tbody>
+        </table> *@
+    </div>
+}
+
+<button @onclick="CalculateOwedAmounts" hidden="@(!payments.Any())">Calculate Owed Amounts</button>
+
+@code {
+
+    private string name;
+    private decimal amountPaid;
+    private DateTime selectedDate;
+    private List<Payment> payments = new List<Payment>();
+    private bool showTallyTable = false;
+    private TripExpenses tripExpenses = new TripExpenses();
+
+
+
+    private bool IsValidInput()
+    {
+        return !string.IsNullOrEmpty(name) && amountPaid > 0 ;
+    }
+
+    private void AddPayment()
+    {
+        payments.Add(new Payment { Name = name, Amount = amountPaid});
+        tripExpenses.Expenses.Add(new Payment
+            {
+                Name = name,
+                Amount = amountPaid
+            });
+    }
+
+
+    private async Task CalculateOwedAmounts()
+    {
+        var json = JsonConvert.SerializeObject(tripExpenses);
+        var response = await httpClient.PostAsync("https://localhost:7182/api/Trip", new StringContent(json, Encoding.UTF8, "application/json"));
+        if (response.IsSuccessStatusCode)
+        {
+            var jsonReturn = JsonConvert.DeserializeObject<Payment>(response);
+            showTallyTable = true;
+        }
+        else
+        {
+            // Handle failure
+        }
+    }
+
+    public class Payment
+    {
+        [JsonProperty("name")]
+        public string Name { get; set; }
+        [JsonProperty("amount")]
+        public decimal Amount { get; set; }
+    }
+    public class TripExpenses
+    {
+        [JsonProperty("expenses")]
+        public List<Payment> Expenses { get; set; } = new List<Payment>();
+    }
+
+}
