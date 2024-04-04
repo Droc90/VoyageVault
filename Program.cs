@@ -13,13 +13,13 @@ builder.Services.AddControllers();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddHttpClient();
+//builder.Services.AddHttpClient();
 
-//builder.Services.AddHttpClient<IVoyageService, VoyageService>(client =>
-//{
-//    client.BaseAddress = new Uri("https://localhost:7182/");
-//}
-//);
+builder.Services.AddHttpClient<IVoyageService, VoyageService>("MyApiClient", client =>
+{
+    client.BaseAddress = new Uri("https://localhost:7182/");
+}
+);
 
 var app = builder.Build();
 

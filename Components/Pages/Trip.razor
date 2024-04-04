@@ -1,72 +1,48 @@
 ﻿@page "/trip"
+@inject HttpClient httpClient
+@inject IHttpClientFactory httpClientFactory
+
 @using Newtonsoft.Json
 @using System.Text
 @using VoyageVault.Components.Models
 
-@inject HttpClient httpClient
 @rendermode InteractiveServer
 
-<h3>Enter Trip Payments</h3>
-
+<h3>Enter Voyage Expenses</h3>
 
 <div>
-    <label>Name:</label>
-    <input @bind="name" />
+    <textarea @bind="jsonInput" rows="10" cols="50"></textarea>
 </div>
-<div>
-    <label>Amount Paid:</label>
-    <input type="number" @bind="amountPaid" />
-</div>
-<button class="btn btn-primary" @onclick="AddPayment">Add Payment</button>
+<button @onclick="CalculateOwedAmounts" disabled="@string.IsNullOrEmpty(jsonInput)">Calculate Owed Amounts</button>
 
 
-@if (payments.Any())
-{
-    <div>
-        <h4>Payments Table</h4>
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Amount Paid</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var payment in payments)
-                {
-                    <tr>
-                        <td>@payment.Name</td>
-                        <td>@payment.Amount</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
 
 @if (showTallyTable)
 {
+<div>
     <div>
-        <h4>Tally Table</h4>
-        <!-- Display tally table here -->
-        <table>
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Amount Owed</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var owed in tripExpenses.Expenses)
-                {
-                    <tr>
-                        <td>@owed.Name</td>
-                        <td>@owed.Amount</td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        <h4>Trip Information</h4>
+        <p>Total Cost of Trip: $@totalTripCost</p>
+        <p>Equal Shares of Cost: $@evenShare</p>
     </div>
+
+    @foreach (var student in owedAmounts)
+    {
+        if(student.Value.Count > 1)
+        {
+        <p>@student.Key paid $@student.Value["TotalPaid"] and owes:</p>
+        <ul>
+            @foreach (var debt in student.Value)
+            {
+                if (debt.Key != "TotalPaid")
+                {
+                    <li>@debt.Key: $@(debt.Value > 0 ? debt.Value : 0)</li>
+                }
+            }
+        </ul>
+        }
+    }
+</div>
 }
 
 <button @onclick="CalculateOwedAmounts" hidden="@(!payments.Any())">Calculate Owed Amounts</button>
@@ -75,44 +51,31 @@
 
     private string name;
     private decimal amountPaid;
-    private DateTime selectedDate;
     private List<Payment> payments = new List<Payment>();
     private bool showTallyTable = false;
-    private VoyageExpenses tripExpenses = new VoyageExpenses();
-
-
+    private Dictionary<string, Dictionary<string, decimal>> owedAmounts = new Dictionary<string, Dictionary<string, decimal>>();
+    private string jsonInput;
+    private decimal totalTripCost, evenShare;
 
     private bool IsValidInput()
     {
         return !string.IsNullOrEmpty(name) && amountPaid > 0 ;
     }
 
-    private void AddPayment()
-    {
-        payments.Add(new Payment { Name = name, Amount = amountPaid});
-        tripExpenses.Expenses.Add(new Payment
-            {
-                Name = name,
-                Amount = amountPaid
-            });
-    }
-
-
     private async Task CalculateOwedAmounts()
     {
-        var json = JsonConvert.SerializeObject(tripExpenses);
-        var response = await httpClient.PostAsync("https://localhost:7182/api/Trip", new StringContent(json, Encoding.UTF8, "application/json"));
+        var client = httpClientFactory.CreateClient("MyApiClient");
+
+        var response = await client.PostAsync("api/Voyage/", new StringContent(jsonInput, Encoding.UTF8, "application/json"));
         if (response.IsSuccessStatusCode)
         {
-            var responseBody = await response.Content.ReadAsStringAsync();
-            // var responseBody = await response.Content.ReadFromJsonAsync
-            var responseJson = JsonConvert.SerializeObject(responseBody);
+            var jsonResponse = await response.Content.ReadAsStringAsync();
+            dynamic jsonObject = JsonConvert.DeserializeObject(jsonResponse);
+             totalTripCost = jsonObject.totalTripCost;
+             evenShare = jsonObject.evenShare;
 
-            foreach(var data in responseBody)
-            {
-                Console.WriteLine(data);
-                // tripExpenses.Expenses.Add(data.ToString());
-            }
+
+            owedAmounts = jsonObject["owedAmounts"].ToObject<Dictionary<string, Dictionary<string, decimal>>>();
 
             showTallyTable = true;
         }

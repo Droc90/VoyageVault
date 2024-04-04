@@ -1,51 +1,77 @@
-﻿
+﻿using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using VoyageVault.Components.Models;
 
 namespace VoyageVault.Components.Controllers
 {
-
-
-using Microsoft.AspNetCore.Mvc;
-using System.Collections.Generic;
-using System.Linq;
-
-    namespace VoyageVault.Components.Controllers
+    [Route("api/[controller]")]
+    [ApiController]
+    public class VoyageController : ControllerBase
     {
-        [Route("api/[controller]")]
-        [ApiController]
-        public class VoyageController : ControllerBase
+        [HttpPost]
+        public IActionResult CalculateOwedAmounts([FromBody] List<StudentExpense> studentExpenses)
         {
-            [HttpPost]
-            public IActionResult CalculateOwedAmounts([FromBody] List<StudentExpense> studentExpenses)
+            if (studentExpenses == null || studentExpenses.Count == 0)
+                return BadRequest("No student expenses provided.");
+
+            // Calculate total trip cost
+            decimal totalTripCost = studentExpenses.SelectMany(se => se.Expenses).Sum(e => e.Amount);
+
+            // Calculate even share
+            decimal evenShare = Math.Round(totalTripCost / studentExpenses.Count, 2);
+
+            // Dictionary to store owed amounts per person
+            var owedAmounts = new Dictionary<string, Dictionary<string, decimal>>();
+
+            // Calculate amount owed by each student to others
+            foreach (var studentExpense in studentExpenses)
             {
-                if (studentExpenses == null || studentExpenses.Count == 0)
-                    return BadRequest("No student expenses provided.");
+                // Dictionary to store owed amounts for the current student
+                var owedToCurrentStudent = new Dictionary<string, decimal>();
 
-                decimal totalTripExpense = studentExpenses.Sum(se => se.Expenses.Sum(e => e.Amount));
+                decimal totalPaid = studentExpense.Expenses.Sum(e => e.Amount);
+                decimal amountOwed = totalPaid - evenShare;
 
-                decimal evenShare = totalTripExpense / studentExpenses.Count;
-
-                var owedAmounts = new Dictionary<string, decimal>();
-
-                foreach (var studentExpense in studentExpenses)
+                if(amountOwed < 0)
                 {
-                    decimal totalStudentExpense = studentExpense.Expenses.Sum(e => e.Amount);
-                    decimal amountOwed = evenShare - totalStudentExpense;
-                    owedAmounts.Add(studentExpense.StudentName, amountOwed);
+                    foreach (var otherStudentExpense in studentExpenses.Where(se => se.StudentName != studentExpense.StudentName))
+                    {
+                        // Calculate the amount owed to other students
+                        decimal otherStudentTotal = otherStudentExpense.Expenses.Sum(e => e.Amount);
+                        //does this person owe money
+                        decimal amountToOther = evenShare - otherStudentExpense.Expenses.Sum(e => e.Amount);
+                        if (amountToOther < 0) 
+                        {
+                            decimal amountToExchange = Math.Min(Math.Abs(amountOwed), Math.Abs(amountToOther));
+
+                            if (amountToExchange > 0)
+                            {
+                                // Add owed amount to the dictionary
+                                owedToCurrentStudent.Add(otherStudentExpense.StudentName, Math.Round(amountToExchange, 2));
+                            }
+                        }
+
+                    }
+
+                    // Add total paid by the current student to the dictionary
+                    owedToCurrentStudent.Add("TotalPaid", totalPaid);
                 }
 
-                return Ok(owedAmounts);
+                // Add the owed amounts for the current student to the outer dictionary
+                owedAmounts.Add(studentExpense.StudentName, owedToCurrentStudent);
             }
-        }
 
-        public class StudentExpense
-        {
-            public string StudentName { get; set; }
-            public List<Expense> Expenses { get; set; }
-        }
+            // Prepare response object
+            var response = new
+            {
+                OwedAmounts = owedAmounts,
+                TotalTripCost = totalTripCost,
+                EvenShare = evenShare
+            };
 
-        public class Expense
-        {
-            public decimal Amount { get; set; }
+            return Ok(response);
         }
     }
 }
