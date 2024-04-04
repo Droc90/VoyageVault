@@ -1,15 +1,14 @@
 ﻿@page "/trip"
 @using Newtonsoft.Json
 @using System.Text
+@using VoyageVault.Components.Models
+
 @inject HttpClient httpClient
 @rendermode InteractiveServer
 
 <h3>Enter Trip Payments</h3>
 
-@* <div>
-    <label>Date:</label>
-    <input type="date" @bind="selectedDate" min="@DateTime.Now.Year + " -99-99" max="@DateTime.Now.Year + " -12-31" />
-</div> *@
+
 <div>
     <label>Name:</label>
     <input @bind="name" />
@@ -50,7 +49,7 @@
     <div>
         <h4>Tally Table</h4>
         <!-- Display tally table here -->
-@*         <table>
+        <table>
             <thead>
                 <tr>
                     <th>Name</th>
@@ -58,15 +57,15 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var response in response)
+                @foreach (var owed in tripExpenses.Expenses)
                 {
                     <tr>
-                        <td>@payment.Name</td>
-                        <td>@payment.Amount</td>
+                        <td>@owed.Name</td>
+                        <td>@owed.Amount</td>
                     </tr>
                 }
             </tbody>
-        </table> *@
+        </table>
     </div>
 }
 
@@ -79,7 +78,7 @@
     private DateTime selectedDate;
     private List<Payment> payments = new List<Payment>();
     private bool showTallyTable = false;
-    private TripExpenses tripExpenses = new TripExpenses();
+    private VoyageExpenses tripExpenses = new VoyageExpenses();
 
 
 
@@ -105,7 +104,16 @@
         var response = await httpClient.PostAsync("https://localhost:7182/api/Trip", new StringContent(json, Encoding.UTF8, "application/json"));
         if (response.IsSuccessStatusCode)
         {
-            var jsonReturn = JsonConvert.DeserializeObject<Payment>(response);
+            var responseBody = await response.Content.ReadAsStringAsync();
+            // var responseBody = await response.Content.ReadFromJsonAsync
+            var responseJson = JsonConvert.SerializeObject(responseBody);
+
+            foreach(var data in responseBody)
+            {
+                Console.WriteLine(data);
+                // tripExpenses.Expenses.Add(data.ToString());
+            }
+
             showTallyTable = true;
         }
         else
@@ -113,18 +121,4 @@
             // Handle failure
         }
     }
-
-    public class Payment
-    {
-        [JsonProperty("name")]
-        public string Name { get; set; }
-        [JsonProperty("amount")]
-        public decimal Amount { get; set; }
-    }
-    public class TripExpenses
-    {
-        [JsonProperty("expenses")]
-        public List<Payment> Expenses { get; set; } = new List<Payment>();
-    }
-
 }

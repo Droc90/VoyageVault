@@ -30,7 +30,7 @@ namespace VoyageVault.Components.Controllers
                 owedAmounts.Add(expense.Name, owedAmount);
             }
 
-            return Ok(JsonConvert.SerializeObject(owedAmounts));
+            return this.Ok(JsonConvert.SerializeObject(owedAmounts));
         }
     }
 
