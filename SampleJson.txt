@@ -1,0 +1,27 @@
+[
+  {
+    "StudentName": "Louis",
+    "Expenses": [
+      { "Amount": 5.75 },
+      { "Amount": 35.00 },
+      { "Amount": 12.79 }
+    ]
+  },
+  {
+    "StudentName": "Carter",
+    "Expenses": [
+      { "Amount": 12.00 },
+      { "Amount": 15.00 },
+      { "Amount": 23.23 }
+    ]
+  },
+  {
+    "StudentName": "David",
+    "Expenses": [
+      { "Amount": 10.00 },
+      { "Amount": 20.00 },
+      { "Amount": 38.41 },
+      { "Amount": 45.00 }
+    ]
+  }
+]
