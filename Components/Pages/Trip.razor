@@ -9,43 +9,50 @@
 @rendermode InteractiveServer
 
 <h3>Enter Voyage Expenses</h3>
-
-<div>
-    <textarea @bind="jsonInput" rows="10" cols="50"></textarea>
-</div>
-<button @onclick="CalculateOwedAmounts" disabled="@string.IsNullOrEmpty(jsonInput)">Calculate Owed Amounts</button>
+@if (showJsonInput)
+{
+    <div>
+        <textarea @bind="jsonInput" rows="10" cols="50"></textarea>
+    </div>
+    <button @onclick="CalculateOwedAmounts" disabled="@string.IsNullOrEmpty(jsonInput)">Calculate Owed Amounts</button>
+}
 
 
 
 @if (showTallyTable)
 {
-<div>
     <div>
-        <h4>Trip Information</h4>
-        <p>Total Cost of Trip: $@totalTripCost</p>
-        <p>Equal Shares of Cost: $@evenShare</p>
-    </div>
+        <div>
+            <h4>Trip Information</h4>
+            <p>Total Cost of Trip: $@totalTripCost</p>
+            <p>Equal Shares of Cost: $@evenShare</p>
+        </div>
 
-    @foreach (var student in owedAmounts)
-    {
-        if(student.Value.Count > 1)
+        @foreach (var student in owedAmounts)
         {
-        <p>@student.Key paid $@student.Value["TotalPaid"] and owes:</p>
-        <ul>
-            @foreach (var debt in student.Value)
+            if(student.Value.Count > 1)
             {
-                if (debt.Key != "TotalPaid")
+            <p>@student.Key paid $@student.Value["TotalPaid"] and owes:</p>
+            <ul>
+                @foreach (var debt in student.Value)
                 {
-                    <li>@debt.Key: $@(debt.Value > 0 ? debt.Value : 0)</li>
+                    if (debt.Key != "TotalPaid")
+                    {
+                        <li>@debt.Key: $@(debt.Value > 0 ? debt.Value : 0)</li>
+                    }
                 }
+            </ul>
             }
-        </ul>
         }
-    }
-</div>
+        
+    </div>
+    
 }
 
 <button @onclick="CalculateOwedAmounts" hidden="@(!payments.Any())">Calculate Owed Amounts</button>
+<Popup @ref="popupRef" />
+
+<button @onclick="ResetPage" hidden="@(!showTallyTable)">OK</button>
 
 @code {
 
@@ -56,10 +63,23 @@
     private Dictionary<string, Dictionary<string, decimal>> owedAmounts = new Dictionary<string, Dictionary<string, decimal>>();
     private string jsonInput;
     private decimal totalTripCost, evenShare;
+    private string errorMessage = "";
+    private Popup popupRef;
+    private bool showJsonInput = true;
 
     private bool IsValidInput()
     {
         return !string.IsNullOrEmpty(name) && amountPaid > 0 ;
+    }
+
+    private void ResetPage()
+    {
+        jsonInput = string.Empty;
+        showJsonInput = true;
+        showTallyTable = false;
+        totalTripCost = 0;
+        evenShare = 0;
+        owedAmounts.Clear();
     }
 
     private async Task CalculateOwedAmounts()
@@ -71,17 +91,47 @@
         {
             var jsonResponse = await response.Content.ReadAsStringAsync();
             dynamic jsonObject = JsonConvert.DeserializeObject(jsonResponse);
-             totalTripCost = jsonObject.totalTripCost;
-             evenShare = jsonObject.evenShare;
+            totalTripCost = jsonObject.totalTripCost;
+            evenShare = jsonObject.evenShare;
 
 
             owedAmounts = jsonObject["owedAmounts"].ToObject<Dictionary<string, Dictionary<string, decimal>>>();
 
             showTallyTable = true;
+            showJsonInput = false;
         }
         else
         {
-            // Handle failure
+            popupRef.Show("Invalid JSON String");
+            showJsonInput = true;
         }
+    }
+
+    [Parameter]
+    public bool IsVisible { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> IsVisibleChanged { get; set; }
+
+    [Parameter]
+    public string? HeaderText { get; set; }
+
+    [Parameter]
+    public string? BodyText { get; set; }
+
+    public void Show(string bodyText, string headerText = "")
+    {
+        HeaderText = headerText;
+        BodyText = bodyText;
+        IsVisible = true;
+        StateHasChanged();
+    }
+
+    private void Close()
+    {
+        HeaderText = string.Empty;
+        BodyText = string.Empty;
+        IsVisible = false;
+        StateHasChanged();
     }
 }
