@@ -58,6 +58,10 @@ namespace VoyageVault.Components.Controllers
                     // Add total paid by the current student to the dictionary
                     owedToCurrentStudent.Add("TotalPaid", totalPaid);
                 }
+                else 
+                {
+                    owedToCurrentStudent.Add("TotalPaid", totalPaid);
+                }
 
                 // Add the owed amounts for the current student to the outer dictionary
                 owedAmounts.Add(studentExpense.StudentName, owedToCurrentStudent);

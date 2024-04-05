@@ -32,7 +32,7 @@
         {
             if(student.Value.Count > 1)
             {
-            <p>@student.Key paid $@student.Value["TotalPaid"] and owes:</p>
+            <p><b>@student.Key</b> paid $@student.Value["TotalPaid"] and owes:</p>
             <ul>
                 @foreach (var debt in student.Value)
                 {
@@ -41,7 +41,11 @@
                         <li>@debt.Key: $@(debt.Value > 0 ? debt.Value : 0)</li>
                     }
                 }
-            </ul>
+                </ul>
+            }
+            else if(student.Value.Count == 1)
+            {
+                <p><b>@student.Key</b> paid $@student.Value["TotalPaid"]</p>
             }
         }
         

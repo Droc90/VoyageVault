@@ -14,3 +14,5 @@ Swashbuckle for running Swagger
 If the JSON was formatted correctly then the output should appear
 If the JSON was not correct you should receive an error message popup!
 The API can be tested at https://localhost:7182/swagger
+
+Be sure to check the About link at the top right of the page
