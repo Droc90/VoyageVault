@@ -1,6 +1,7 @@
 ﻿@page "/trip"
 @inject HttpClient httpClient
 @inject IHttpClientFactory httpClientFactory
+@inject ILogger<Trip> Logger
 
 @using Newtonsoft.Json
 @using System.Text
@@ -16,8 +17,6 @@
     </div>
     <button @onclick="CalculateOwedAmounts" disabled="@string.IsNullOrEmpty(jsonInput)">Calculate Owed Amounts</button>
 }
-
-
 
 @if (showTallyTable)
 {
@@ -70,7 +69,7 @@
     private string errorMessage = "";
     private Popup popupRef;
     private bool showJsonInput = true;
-
+    private string errorResponse = "Invalid JSON String";
     private bool IsValidInput()
     {
         return !string.IsNullOrEmpty(name) && amountPaid > 0 ;
@@ -106,7 +105,8 @@
         }
         else
         {
-            popupRef.Show("Invalid JSON String");
+            errorResponse = await response.Content.ReadAsStringAsync();
+            popupRef.Show(errorResponse);
             showJsonInput = true;
         }
     }

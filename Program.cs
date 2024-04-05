@@ -21,6 +21,9 @@ builder.Services.AddHttpClient<IVoyageService, VoyageService>("MyApiClient", cli
 }
 );
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

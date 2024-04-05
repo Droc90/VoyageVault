@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,72 +11,89 @@ namespace VoyageVault.Components.Controllers
     [ApiController]
     public class VoyageController : ControllerBase
     {
+        private readonly ILogger _logger;
+
+        public VoyageController(ILogger<VoyageController> logger)
+        {
+            _logger = logger;
+        }
         [HttpPost]
         public IActionResult CalculateOwedAmounts([FromBody] List<StudentExpense> studentExpenses)
         {
-            if (studentExpenses == null || studentExpenses.Count == 0)
-                return BadRequest("No student expenses provided.");
-
-            // Calculate total trip cost
-            decimal totalTripCost = studentExpenses.SelectMany(se => se.Expenses).Sum(e => e.Amount);
-
-            // Calculate even share
-            decimal evenShare = Math.Round(totalTripCost / studentExpenses.Count, 2);
-
-            // Dictionary to store owed amounts per person
-            var owedAmounts = new Dictionary<string, Dictionary<string, decimal>>();
-
-            // Calculate amount owed by each student to others
-            foreach (var studentExpense in studentExpenses)
+            try
             {
-                // Dictionary to store owed amounts for the current student
-                var owedToCurrentStudent = new Dictionary<string, decimal>();
+                if (studentExpenses == null || studentExpenses.Count == 0)
+                    return BadRequest("No student expenses provided.");
 
-                decimal totalPaid = studentExpense.Expenses.Sum(e => e.Amount);
-                decimal amountOwed = totalPaid - evenShare;
+                // Calculate total trip cost
+                decimal totalTripCost = studentExpenses.SelectMany(se => se.Expenses).Sum(e => e.Amount);
 
-                if(amountOwed < 0)
+                // Calculate even share
+                decimal evenShare = Math.Round(totalTripCost / studentExpenses.Count, 2);
+
+                // Dictionary to store owed amounts per person
+                var owedAmounts = new Dictionary<string, Dictionary<string, decimal>>();
+
+                // Calculate amount owed by each student to others
+                foreach (var studentExpense in studentExpenses)
                 {
-                    foreach (var otherStudentExpense in studentExpenses.Where(se => se.StudentName != studentExpense.StudentName))
-                    {
-                        // Calculate the amount owed to other students
-                        decimal otherStudentTotal = otherStudentExpense.Expenses.Sum(e => e.Amount);
-                        //does this person owe money
-                        decimal amountToOther = evenShare - otherStudentExpense.Expenses.Sum(e => e.Amount);
-                        if (amountToOther < 0) 
-                        {
-                            decimal amountToExchange = Math.Min(Math.Abs(amountOwed), Math.Abs(amountToOther));
+                    // Dictionary to store owed amounts for the current student
+                    var owedToCurrentStudent = new Dictionary<string, decimal>();
 
-                            if (amountToExchange > 0)
+                    decimal totalPaid = studentExpense.Expenses.Sum(e => e.Amount);
+                    decimal amountOwed = totalPaid - evenShare;
+
+                    if (amountOwed < 0)
+                    {
+                        foreach (var otherStudentExpense in studentExpenses.Where(se => se.StudentName != studentExpense.StudentName))
+                        {
+                            // Calculate the amount owed to other students
+                            decimal otherStudentTotal = otherStudentExpense.Expenses.Sum(e => e.Amount);
+                            //does this person owe money
+                            decimal amountToOther = evenShare - otherStudentExpense.Expenses.Sum(e => e.Amount);
+                            if (amountToOther < 0)
                             {
-                                // Add owed amount to the dictionary
-                                owedToCurrentStudent.Add(otherStudentExpense.StudentName, Math.Round(amountToExchange, 2));
+                                decimal amountToExchange = Math.Min(Math.Abs(amountOwed), Math.Abs(amountToOther));
+
+                                if (amountToExchange > 0)
+                                {
+                                    // Add owed amount to the dictionary
+                                    owedToCurrentStudent.Add(otherStudentExpense.StudentName, Math.Round(amountToExchange, 2));
+                                }
                             }
+
                         }
 
+                        // Add total paid by the current student to the dictionary
+                        owedToCurrentStudent.Add("TotalPaid", totalPaid);
+                    }
+                    else
+                    {
+                        owedToCurrentStudent.Add("TotalPaid", totalPaid);
                     }
 
-                    // Add total paid by the current student to the dictionary
-                    owedToCurrentStudent.Add("TotalPaid", totalPaid);
+                    // Add the owed amounts for the current student to the outer dictionary
+                    owedAmounts.Add(studentExpense.StudentName, owedToCurrentStudent);
                 }
-                else 
+
+                var sortedOwedAmounts = owedAmounts.OrderByDescending(kvp => kvp.Value["TotalPaid"]);
+
+                // Prepare response object
+                var response = new
                 {
-                    owedToCurrentStudent.Add("TotalPaid", totalPaid);
-                }
+                    OwedAmounts = sortedOwedAmounts.ToDictionary(kvp => kvp.Key, kvp => kvp.Value),
+                    TotalTripCost = totalTripCost,
+                    EvenShare = evenShare
+                };
 
-                // Add the owed amounts for the current student to the outer dictionary
-                owedAmounts.Add(studentExpense.StudentName, owedToCurrentStudent);
+                return Ok(response);
             }
-
-            // Prepare response object
-            var response = new
+            catch (Exception ex) 
             {
-                OwedAmounts = owedAmounts,
-                TotalTripCost = totalTripCost,
-                EvenShare = evenShare
-            };
-
-            return Ok(response);
+                _logger.LogError(ex.ToString()); 
+                return BadRequest("Error processing data");
+            }
+            
         }
     }
 }
